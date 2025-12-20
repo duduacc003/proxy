@@ -3,7 +3,6 @@ import type { Context } from "hono"
 import { streamSSE } from "hono/streaming"
 
 import { awaitApproval } from "~/lib/approval"
-import { getSmallModel } from "~/lib/config"
 import { createHandlerLogger } from "~/lib/logger"
 import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
@@ -45,14 +44,16 @@ export async function handleCompletion(c: Context) {
 
   const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
   logger.debug("Anthropic request payload:", JSON.stringify(anthropicPayload))
+  logger.debug(
+    "Anthropic user_id:",
+    anthropicPayload.metadata?.user_id ?? "missing",
+  )
 
-  // fix claude code 2.0.28+ warmup request consume premium request, forcing small model if no tools are used
-  // set "CLAUDE_CODE_SUBAGENT_MODEL": "you small model" also can avoid this
-  const anthropicBeta = c.req.header("anthropic-beta")
-  const noTools = !anthropicPayload.tools || anthropicPayload.tools.length === 0
-  if (anthropicBeta && noTools) {
-    anthropicPayload.model = getSmallModel()
-  }
+  // const anthropicBeta = c.req.header("anthropic-beta")
+  // const noTools = !anthropicPayload.tools || anthropicPayload.tools.length === 0
+  // if (anthropicBeta && noTools) {
+  //   anthropicPayload.model = getSmallModel()
+  // }
 
   const useResponsesApi = shouldUseResponsesApi(anthropicPayload.model)
 

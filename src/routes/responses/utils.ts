@@ -3,23 +3,50 @@ import type {
   ResponsesPayload,
 } from "~/services/copilot/create-responses"
 
+import { getInitiatorForKey } from "~/lib/initiator"
+
 export const getResponsesRequestOptions = (
   payload: ResponsesPayload,
 ): { vision: boolean; initiator: "agent" | "user" } => {
   const vision = hasVisionInput(payload)
-  const initiator = hasAgentInitiator(payload) ? "agent" : "user"
+  const initiatorKey = getInitiatorKey(payload)
+  const lastRole = getLastMessageRole(payload)
+  const initiator = getInitiatorForKey(initiatorKey, lastRole === "user")
 
   return { vision, initiator }
 }
 
-export const hasAgentInitiator = (payload: ResponsesPayload): boolean =>
-  getPayloadItems(payload).some((item) => {
-    if (!("role" in item) || !item.role) {
-      return true
+const getInitiatorKey = (payload: ResponsesPayload): string => {
+  const userId = payload.metadata?.["user_id"]
+  if (userId && userId.trim()) {
+    return userId.trim()
+  }
+
+  if (payload.safety_identifier?.trim()) {
+    return payload.safety_identifier.trim()
+  }
+
+  if (payload.prompt_cache_key?.trim()) {
+    return payload.prompt_cache_key.trim()
+  }
+
+  return "default"
+}
+
+const getLastMessageRole = (payload: ResponsesPayload): string | undefined => {
+  const items = getPayloadItems(payload)
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const item = items[i]
+    if (!("role" in item)) {
+      continue
     }
-    const role = typeof item.role === "string" ? item.role.toLowerCase() : ""
-    return role === "assistant"
-  })
+    const role = (item as { role?: string }).role
+    if (role) {
+      return role
+    }
+  }
+  return undefined
+}
 
 export const hasVisionInput = (payload: ResponsesPayload): boolean => {
   const values = getPayloadItems(payload)

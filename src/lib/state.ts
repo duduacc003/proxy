@@ -16,6 +16,14 @@ export interface State {
   rateLimitSeconds?: number
   lastRequestTimestamp?: number
   verbose: boolean
+
+  initiatorWindows: Map<string, InitiatorWindow>
+  initiatorWindowMin: number
+  initiatorWindowMax: number
+}
+
+export interface InitiatorWindow {
+  remainingAgentCalls: number
 }
 
 export const state: State = {
@@ -24,4 +32,7 @@ export const state: State = {
   rateLimitWait: false,
   showToken: false,
   verbose: false,
+  initiatorWindows: new Map(),
+  initiatorWindowMin: 70,
+  initiatorWindowMax: 100,
 }

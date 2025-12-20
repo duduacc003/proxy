@@ -3,7 +3,24 @@ import { events } from "fetch-event-stream"
 
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
+import { getInitiatorForKey } from "~/lib/initiator"
 import { state } from "~/lib/state"
+
+const getInitiatorKey = (payload: ChatCompletionsPayload): string => {
+  if (payload.user && payload.user.trim()) {
+    return payload.user.trim()
+  }
+  return "default"
+}
+
+const getLastMessageRole = (
+  payload: ChatCompletionsPayload,
+): Message["role"] | undefined => {
+  if (payload.messages.length === 0) {
+    return undefined
+  }
+  return payload.messages.at(-1)?.role
+}
 
 export const createChatCompletions = async (
   payload: ChatCompletionsPayload,
@@ -16,16 +33,14 @@ export const createChatCompletions = async (
       && x.content?.some((x) => x.type === "image_url"),
   )
 
-  // Agent/user check for X-Initiator header
-  // Determine if any message is from an agent ("assistant" or "tool")
-  const isAgentCall = payload.messages.some((msg) =>
-    ["assistant", "tool"].includes(msg.role),
-  )
+  const initiatorKey = getInitiatorKey(payload)
+  const lastRole = getLastMessageRole(payload)
+  const initiator = getInitiatorForKey(initiatorKey, lastRole === "user")
 
   // Build headers and add X-Initiator
   const headers: Record<string, string> = {
     ...copilotHeaders(state, enableVision),
-    "X-Initiator": isAgentCall ? "agent" : "user",
+    "X-Initiator": initiator,
   }
 
   const response = await fetch(`${copilotBaseUrl(state)}/chat/completions`, {

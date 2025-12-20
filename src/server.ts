@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 
+import { adminRoutes } from "./routes/admin/route"
 import { completionRoutes } from "./routes/chat-completions/route"
 import { embeddingRoutes } from "./routes/embeddings/route"
 import { messageRoutes } from "./routes/messages/route"
@@ -23,6 +24,7 @@ server.route("/embeddings", embeddingRoutes)
 server.route("/usage", usageRoute)
 server.route("/token", tokenRoute)
 server.route("/responses", responsesRoutes)
+server.route("/admin", adminRoutes)
 
 // Compatibility with tools that expect v1/ prefix
 server.route("/v1/chat/completions", completionRoutes)
