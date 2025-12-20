@@ -138,7 +138,7 @@ export const start = defineCommand({
     port: {
       alias: "p",
       type: "string",
-      default: "4545",
+      default: "4141",
       description: "Port to listen on",
     },
     verbose: {
