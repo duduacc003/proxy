@@ -22,7 +22,17 @@ server.use((c, next) => {
     return next()
   }
 
-  const provided = c.req.header("x-api-key")
+  // Check x-api-key header first
+  let provided = c.req.header("x-api-key")
+
+  // If not found, check Authorization: Bearer header (for Codex compatibility)
+  if (!provided) {
+    const authHeader = c.req.header("Authorization")
+    if (authHeader?.startsWith("Bearer ")) {
+      provided = authHeader.slice(7)
+    }
+  }
+
   if (!provided || provided !== apiKey) {
     return c.json({ ok: false, error: "Unauthorized" }, 401)
   }
