@@ -96,15 +96,44 @@ function buildGitHubTokenWebhookHeaders(): Record<string, string> {
   return headers
 }
 
-function extractTokenFromWebhookResponse(body: unknown): string {
-  if (Array.isArray(body)) {
-    const first = body[0] as unknown
-    const token = (first as { token?: unknown }).token
-    return typeof token === "string" ? token.trim() : ""
+interface WebhookData {
+  token: string
+  min?: number
+  max?: number
+}
+
+const MIN_WINDOW_BOUND = 0
+const MAX_WINDOW_BOUND = 500
+
+/**
+ * Extracts token and optional initiator window config from webhook response.
+ * Expected format: { token: string, min?: number (0-500), max?: number (0-500) }
+ * Can also be an array with first element matching that format.
+ */
+function extractWebhookData(body: unknown): WebhookData {
+  const item = (Array.isArray(body) ? body[0] : body) as Record<string, unknown>
+
+  const token = typeof item.token === "string" ? item.token.trim() : ""
+
+  let min: number | undefined
+  if (
+    typeof item.min === "number"
+    && item.min >= MIN_WINDOW_BOUND
+    && item.min <= MAX_WINDOW_BOUND
+  ) {
+    min = item.min
   }
 
-  const token = (body as { token?: unknown }).token
-  return typeof token === "string" ? token.trim() : ""
+  let max: number | undefined
+  if (
+    typeof item.max === "number"
+    && item.max >= MIN_WINDOW_BOUND
+    && item.max <= MAX_WINDOW_BOUND
+  ) {
+    max = item.max
+  }
+
+  return { token, min, max }
 }
 
 export async function loadGitHubTokenFromWebhook(): Promise<string> {
@@ -127,9 +156,16 @@ export async function loadGitHubTokenFromWebhook(): Promise<string> {
   }
 
   const body = await response.json()
-  const token = extractTokenFromWebhookResponse(body)
+  const { token, min, max } = extractWebhookData(body)
   if (!token) {
     throw new Error("Webhook response missing token")
+  }
+
+  if (min !== undefined) {
+    state.initiatorWindowMin = min
+  }
+  if (max !== undefined) {
+    state.initiatorWindowMax = max
   }
 
   return token
