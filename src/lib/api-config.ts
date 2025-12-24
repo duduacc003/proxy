@@ -16,9 +16,13 @@ const API_VERSION = "2025-10-01"
 export const copilotBaseUrl = (state: State) =>
   `https://api.${state.accountType}.githubcopilot.com`
 
-export const copilotHeaders = (state: State, vision: boolean = false) => {
+export const copilotHeaders = (
+  state: State,
+  copilotToken: string,
+  vision: boolean = false,
+) => {
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${state.copilotToken}`,
+    Authorization: `Bearer ${copilotToken}`,
     "content-type": standardHeaders()["content-type"],
     "copilot-integration-id": "vscode-chat",
     "editor-version": `vscode/${state.vsCodeVersion}`,

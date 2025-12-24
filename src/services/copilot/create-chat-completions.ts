@@ -5,6 +5,7 @@ import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
 import { getInitiatorForKey } from "~/lib/initiator"
 import { state } from "~/lib/state"
+import { getValidCopilotToken } from "~/lib/token"
 
 const getInitiatorKey = (payload: ChatCompletionsPayload): string => {
   if (payload.user && payload.user.trim()) {
@@ -25,7 +26,7 @@ const getLastMessageRole = (
 export const createChatCompletions = async (
   payload: ChatCompletionsPayload,
 ) => {
-  if (!state.copilotToken) throw new Error("Copilot token not found")
+  const copilotToken = await getValidCopilotToken()
 
   const enableVision = payload.messages.some(
     (x) =>
@@ -37,9 +38,8 @@ export const createChatCompletions = async (
   const lastRole = getLastMessageRole(payload)
   const initiator = getInitiatorForKey(initiatorKey, lastRole === "user")
 
-  // Build headers and add X-Initiator
   const headers: Record<string, string> = {
-    ...copilotHeaders(state, enableVision),
+    ...copilotHeaders(state, copilotToken, enableVision),
     "X-Initiator": initiator,
   }
 

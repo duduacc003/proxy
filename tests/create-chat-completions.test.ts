@@ -7,6 +7,7 @@ import { createChatCompletions } from "../src/services/copilot/create-chat-compl
 
 // Mock state
 state.copilotToken = "test-token"
+state.copilotTokenExpiresAt = Date.now() + 3600_000
 state.vsCodeVersion = "1.0.0"
 state.accountType = "individual"
 

@@ -4,6 +4,7 @@ import { events } from "fetch-event-stream"
 import { copilotBaseUrl, copilotHeaders } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
 import { state } from "~/lib/state"
+import { getValidCopilotToken } from "~/lib/token"
 
 export interface ResponsesPayload {
   model: string
@@ -330,10 +331,10 @@ export const createResponses = async (
   payload: ResponsesPayload,
   { vision, initiator }: ResponsesRequestOptions,
 ): Promise<CreateResponsesReturn> => {
-  if (!state.copilotToken) throw new Error("Copilot token not found")
+  const copilotToken = await getValidCopilotToken()
 
   const headers: Record<string, string> = {
-    ...copilotHeaders(state, vision),
+    ...copilotHeaders(state, copilotToken, vision),
     "X-Initiator": initiator,
   }
 

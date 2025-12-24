@@ -6,8 +6,8 @@ import { server } from "../src/server"
 const adminToken = "admin-token"
 const webhookUrl = "http://n8n.local/webhook/github-token"
 
-const originalSetInterval = globalThis.setInterval
-const originalClearInterval = globalThis.clearInterval
+const originalSetTimeout = globalThis.setTimeout
+const originalClearTimeout = globalThis.clearTimeout
 
 beforeEach(() => {
   process.env.COPILOT_API_ADMIN_TOKEN = adminToken
@@ -19,19 +19,19 @@ beforeEach(() => {
 
   state.githubToken = undefined
   state.copilotToken = undefined
+  state.copilotTokenExpiresAt = undefined
   state.vsCodeVersion = "1.0.0"
   state.accountType = "individual"
   state.showToken = false
 
-  const setIntervalMock = mock(
+  const setTimeoutMock = mock(
     (_fn: unknown, _ms?: number) =>
-      123 as unknown as ReturnType<typeof setInterval>,
+      123 as unknown as ReturnType<typeof setTimeout>,
   )
-  const clearIntervalMock = mock((_id: unknown) => undefined)
+  const clearTimeoutMock = mock((_id: unknown) => undefined)
 
-  globalThis.setInterval = setIntervalMock as unknown as typeof setInterval
-  globalThis.clearInterval =
-    clearIntervalMock as unknown as typeof clearInterval
+  globalThis.setTimeout = setTimeoutMock as unknown as typeof setTimeout
+  globalThis.clearTimeout = clearTimeoutMock as unknown as typeof clearTimeout
 
   const fetchMock = mock((url: string, init?: RequestInit) => {
     if (url === webhookUrl) {
@@ -76,8 +76,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  globalThis.setInterval = originalSetInterval
-  globalThis.clearInterval = originalClearInterval
+  globalThis.setTimeout = originalSetTimeout
+  globalThis.clearTimeout = originalClearTimeout
 
   delete process.env.COPILOT_API_ADMIN_TOKEN
   delete process.env.GITHUB_TOKEN_WEBHOOK_URL
@@ -117,13 +117,13 @@ test("POST /admin/reload-token reloads tokens and de-dupes interval", async () =
   expect(state.githubToken).toBe("ghp_test")
   expect(state.copilotToken).toBe("copilot_test")
 
-  const setIntervalCalls = (
-    globalThis.setInterval as unknown as { mock: { calls: Array<unknown> } }
+  const setTimeoutCalls = (
+    globalThis.setTimeout as unknown as { mock: { calls: Array<unknown> } }
   ).mock.calls.length
-  const clearIntervalCalls = (
-    globalThis.clearInterval as unknown as { mock: { calls: Array<unknown> } }
+  const clearTimeoutCalls = (
+    globalThis.clearTimeout as unknown as { mock: { calls: Array<unknown> } }
   ).mock.calls.length
 
-  expect(setIntervalCalls).toBe(2)
-  expect(clearIntervalCalls).toBe(1)
+  expect(setTimeoutCalls).toBe(2)
+  expect(clearTimeoutCalls).toBe(1)
 })

@@ -15,7 +15,57 @@ const readGithubToken = () => fs.readFile(PATHS.GITHUB_TOKEN_PATH, "utf8")
 const writeGithubToken = (token: string) =>
   fs.writeFile(PATHS.GITHUB_TOKEN_PATH, token)
 
-let copilotRefreshTimer: ReturnType<typeof setInterval> | undefined
+let copilotRefreshTimer: ReturnType<typeof setTimeout> | undefined
+
+const REFRESH_RETRY_MS = 60_000
+const TOKEN_MARGIN_MS = 60_000
+
+async function refreshCopilotToken(): Promise<void> {
+  try {
+    const { token, refresh_in, expires_at } = await getCopilotToken()
+    state.copilotToken = token
+    state.copilotTokenExpiresAt = expires_at * 1000
+
+    consola.debug("Copilot token refreshed")
+    if (state.showToken) {
+      consola.info("Copilot token:", token)
+    }
+
+    scheduleNextRefresh(refresh_in)
+  } catch (error) {
+    consola.error("Failed to refresh Copilot token, retrying in 60s:", error)
+    scheduleNextRefresh(REFRESH_RETRY_MS / 1000)
+  }
+}
+
+function scheduleNextRefresh(refreshInSeconds: number): void {
+  if (copilotRefreshTimer) {
+    clearTimeout(copilotRefreshTimer)
+  }
+
+  const delay = Math.max(refreshInSeconds - 60, 60) * 1000
+  copilotRefreshTimer = setTimeout(() => {
+    void refreshCopilotToken()
+  }, delay)
+}
+
+export async function getValidCopilotToken(): Promise<string> {
+  const now = Date.now()
+  const expiresAt = state.copilotTokenExpiresAt ?? 0
+
+  if (state.copilotToken && expiresAt > now + TOKEN_MARGIN_MS) {
+    return state.copilotToken
+  }
+
+  consola.debug("Copilot token expired or missing, refreshing on-demand")
+  await refreshCopilotToken()
+
+  if (!state.copilotToken) {
+    throw new Error("Failed to obtain Copilot token")
+  }
+
+  return state.copilotToken
+}
 
 function buildGitHubTokenWebhookHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
@@ -86,36 +136,16 @@ export async function loadGitHubTokenFromWebhook(): Promise<string> {
 }
 
 export const setupCopilotToken = async () => {
-  const { token, refresh_in } = await getCopilotToken()
+  const { token, refresh_in, expires_at } = await getCopilotToken()
   state.copilotToken = token
+  state.copilotTokenExpiresAt = expires_at * 1000
 
-  // Display the Copilot token to the screen
   consola.debug("GitHub Copilot Token fetched successfully!")
   if (state.showToken) {
     consola.info("Copilot token:", token)
   }
 
-  const refreshInterval = (refresh_in - 60) * 1000
-  const newTimer = setInterval(async () => {
-    consola.debug("Refreshing Copilot token")
-    try {
-      const { token } = await getCopilotToken()
-      state.copilotToken = token
-      consola.debug("Copilot token refreshed")
-      if (state.showToken) {
-        consola.info("Refreshed Copilot token:", token)
-      }
-    } catch (error) {
-      consola.error("Failed to refresh Copilot token:", error)
-      throw error
-    }
-  }, refreshInterval)
-
-  const oldTimer = copilotRefreshTimer
-  copilotRefreshTimer = newTimer
-  if (oldTimer) {
-    clearInterval(oldTimer)
-  }
+  scheduleNextRefresh(refresh_in)
 }
 
 interface SetupGitHubTokenOptions {
