@@ -68,6 +68,10 @@ export async function runServer(options: RunServerOptions): Promise<void> {
     `Available models: \n${state.models?.data.map((model) => `- ${model.id}`).join("\n")}`,
   )
 
+  consola.info(
+    `Initiator window: ${state.initiatorWindowMin}-${state.initiatorWindowMax} requests per user turn`,
+  )
+
   const serverUrl = `http://localhost:${options.port}`
 
   if (options.claudeCode) {
