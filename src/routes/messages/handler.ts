@@ -140,10 +140,9 @@ const handleWithResponsesApi = async (
     JSON.stringify(responsesPayload),
   )
 
-  const { vision, initiator } = getResponsesRequestOptions(responsesPayload)
+  const { vision } = getResponsesRequestOptions(responsesPayload)
   const response = await createResponses(responsesPayload, {
     vision,
-    initiator,
   })
 
   if (responsesPayload.stream && isAsyncIterable(response)) {

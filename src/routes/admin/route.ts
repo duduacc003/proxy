@@ -1,10 +1,34 @@
 import { Hono } from "hono"
 
+import { conversationManager } from "~/lib/conversation"
 import { forwardError } from "~/lib/error"
 import { state } from "~/lib/state"
 import { loadGitHubTokenFromWebhook, setupCopilotToken } from "~/lib/token"
 
 export const adminRoutes = new Hono()
+
+adminRoutes.get("/conversations", (c) => {
+  const adminToken = process.env.COPILOT_API_ADMIN_TOKEN
+  if (!adminToken) {
+    return c.json({ ok: false, error: "Server misconfigured" }, 500)
+  }
+
+  const providedAdminToken = c.req.header("x-admin-token")
+  if (!providedAdminToken || providedAdminToken !== adminToken) {
+    return c.json({ ok: false, error: "Unauthorized" }, 401)
+  }
+
+  const stats = conversationManager.getStats()
+
+  return c.json({
+    ok: true,
+    config: {
+      initiatorWindowMin: state.initiatorWindowMin,
+      initiatorWindowMax: state.initiatorWindowMax,
+    },
+    conversations: stats,
+  })
+})
 
 adminRoutes.post("/reload-token", async (c) => {
   try {

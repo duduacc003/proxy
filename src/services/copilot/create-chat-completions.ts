@@ -2,26 +2,10 @@ import consola from "consola"
 import { events } from "fetch-event-stream"
 
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
+import { conversationManager } from "~/lib/conversation"
 import { HTTPError } from "~/lib/error"
-import { getInitiatorForKey } from "~/lib/initiator"
 import { state } from "~/lib/state"
 import { getValidCopilotToken } from "~/lib/token"
-
-const getInitiatorKey = (payload: ChatCompletionsPayload): string => {
-  if (payload.user && payload.user.trim()) {
-    return payload.user.trim()
-  }
-  return "default"
-}
-
-const getLastMessageRole = (
-  payload: ChatCompletionsPayload,
-): Message["role"] | undefined => {
-  if (payload.messages.length === 0) {
-    return undefined
-  }
-  return payload.messages.at(-1)?.role
-}
 
 export const createChatCompletions = async (
   payload: ChatCompletionsPayload,
@@ -34,13 +18,13 @@ export const createChatCompletions = async (
       && x.content?.some((x) => x.type === "image_url"),
   )
 
-  const initiatorKey = getInitiatorKey(payload)
-  const lastRole = getLastMessageRole(payload)
-  const initiator = getInitiatorForKey(initiatorKey, lastRole === "user")
+  const initiator = conversationManager.getInitiator(payload.model)
+  const conversationId = conversationManager.getConversationId(payload.model)
 
   const headers: Record<string, string> = {
     ...copilotHeaders(state, copilotToken, enableVision),
     "X-Initiator": initiator,
+    "x-conversation-id": conversationId,
   }
 
   const response = await fetch(`${copilotBaseUrl(state)}/chat/completions`, {
@@ -52,6 +36,12 @@ export const createChatCompletions = async (
   if (!response.ok) {
     consola.error("Failed to create chat completions", response)
     throw new HTTPError("Failed to create chat completions", response)
+  }
+
+  try {
+    await conversationManager.markAsUsed(payload.model)
+  } catch (error) {
+    consola.error("Failed to update conversation state:", error)
   }
 
   if (payload.stream) {

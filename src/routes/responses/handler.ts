@@ -43,13 +43,13 @@ export const handleResponses = async (c: Context) => {
     )
   }
 
-  const { vision, initiator } = getResponsesRequestOptions(payload)
+  const { vision } = getResponsesRequestOptions(payload)
 
   if (state.manualApprove) {
     await awaitApproval()
   }
 
-  const response = await createResponses(payload, { vision, initiator })
+  const response = await createResponses(payload, { vision })
 
   if (isStreamingRequested(payload) && isAsyncIterable(response)) {
     logger.debug("Forwarding native Responses stream")

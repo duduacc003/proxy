@@ -2,6 +2,7 @@ import consola from "consola"
 import { events } from "fetch-event-stream"
 
 import { copilotBaseUrl, copilotHeaders } from "~/lib/api-config"
+import { conversationManager } from "~/lib/conversation"
 import { HTTPError } from "~/lib/error"
 import { state } from "~/lib/state"
 import { getValidCopilotToken } from "~/lib/token"
@@ -324,18 +325,21 @@ export type CreateResponsesReturn = ResponsesResult | ResponsesStream
 
 interface ResponsesRequestOptions {
   vision: boolean
-  initiator: "agent" | "user"
 }
 
 export const createResponses = async (
   payload: ResponsesPayload,
-  { vision, initiator }: ResponsesRequestOptions,
+  { vision }: ResponsesRequestOptions,
 ): Promise<CreateResponsesReturn> => {
   const copilotToken = await getValidCopilotToken()
+
+  const initiator = conversationManager.getInitiator(payload.model)
+  const conversationId = conversationManager.getConversationId(payload.model)
 
   const headers: Record<string, string> = {
     ...copilotHeaders(state, copilotToken, vision),
     "X-Initiator": initiator,
+    "x-conversation-id": conversationId,
   }
 
   // service_tier is not supported by github copilot
@@ -350,6 +354,12 @@ export const createResponses = async (
   if (!response.ok) {
     consola.error("Failed to create responses", response)
     throw new HTTPError("Failed to create responses", response)
+  }
+
+  try {
+    await conversationManager.markAsUsed(payload.model)
+  } catch (error) {
+    consola.error("Failed to update conversation state:", error)
   }
 
   if (payload.stream) {
