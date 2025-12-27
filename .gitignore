@@ -3,6 +3,7 @@ node_modules/
 
 # local env
 *.local
+.env
 
 # aider
 .aider*
@@ -12,3 +13,7 @@ node_modules/
 
 # build output
 dist/
+
+# claude code
+.claude/
+.codebase/

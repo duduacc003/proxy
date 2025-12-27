@@ -12,18 +12,73 @@ export class HTTPError extends Error {
   }
 }
 
+/**
+ * Sends a fire-and-forget notification to external webhook when rate limit is hit.
+ * Best-effort delivery - notification may be lost on immediate shutdown.
+ * The keyword field is a non-sensitive instance identifier configured via environment.
+ */
+function notifyRateLimitWebhook(
+  errorData: Record<string, unknown>,
+  status: number,
+): void {
+  const webhookUrl = process.env.RATE_LIMIT_WEBHOOK_URL
+  if (!webhookUrl) return
+
+  // Validate URL format
+  try {
+    new URL(webhookUrl)
+  } catch {
+    consola.warn("Invalid RATE_LIMIT_WEBHOOK_URL format")
+    return
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: controller.signal,
+    body: JSON.stringify({
+      event: "rate_limit",
+      status,
+      keyword: process.env.GITHUB_TOKEN_WEBHOOK_KEYWORD ?? "unknown",
+      error: errorData,
+      timestamp: new Date().toISOString(),
+    }),
+  })
+    .catch((err: unknown) => {
+      consola.warn("Failed to notify rate limit webhook:", err)
+    })
+    .finally(() => {
+      clearTimeout(timeoutId)
+    })
+}
+
 export async function forwardError(c: Context, error: unknown) {
   consola.error("Error occurred:", error)
 
   if (error instanceof HTTPError) {
     const errorText = await error.response.text()
-    let errorJson: unknown
+    let errorJson: Record<string, unknown> = { raw: errorText }
     try {
-      errorJson = JSON.parse(errorText)
+      const parsed: unknown = JSON.parse(errorText)
+      if (
+        typeof parsed === "object"
+        && parsed !== null
+        && !Array.isArray(parsed)
+      ) {
+        errorJson = parsed as Record<string, unknown>
+      }
     } catch {
-      errorJson = errorText
+      // errorJson already defaults to { raw: errorText }
     }
     consola.error("HTTP error:", errorJson)
+
+    if (error.response.status === 429) {
+      notifyRateLimitWebhook(errorJson, 429)
+    }
+
     return c.json(
       {
         error: {
