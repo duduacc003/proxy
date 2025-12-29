@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    if: github.repository == 'dudufcb1/cpn8n'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,7 +34,7 @@ jobs:
 
             # Add env var if not exists
             if ! grep -q "RATE_LIMIT_WEBHOOK_URL" .env 2>/dev/null; then
-              echo "RATE_LIMIT_WEBHOOK_URL=https://n8n-test.srv914565.hstgr.cloud/webhook/alert429" >> .env
+              echo "RATE_LIMIT_WEBHOOK_URL=${{ secrets.RATE_LIMIT_WEBHOOK_URL }}" >> .env || { echo "Failed to update .env file"; exit 1; }
             fi
 
             docker compose up -d --build > /tmp/build.log 2>&1
