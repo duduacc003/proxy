@@ -1,0 +1,46 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: copilot
+            host: 3.21.12.121
+            key_secret: EC2_COPILOT_KEY
+          - name: seo
+            host: 3.149.255.36
+            key_secret: EC2_SEO_KEY
+          - name: laravel
+            host: 3.148.170.174
+            key_secret: EC2_LARAVEL_KEY
+
+    steps:
+      - name: Deploy to ${{ matrix.name }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ matrix.host }}
+          username: ubuntu
+          key: ${{ secrets[matrix.key_secret] }}
+          script: |
+            cd /home/ubuntu/cpn8n
+            git pull origin main
+
+            # Add env var if not exists
+            if ! grep -q "RATE_LIMIT_WEBHOOK_URL" .env 2>/dev/null; then
+              echo "RATE_LIMIT_WEBHOOK_URL=https://n8n-test.srv914565.hstgr.cloud/webhook/alert429" >> .env
+            fi
+
+            docker compose up -d --build > /tmp/build.log 2>&1
+            if [ $? -eq 0 ]; then
+              echo "Deploy successful on ${{ matrix.name }}"
+            else
+              echo "Deploy failed - check /tmp/build.log"
+              tail -50 /tmp/build.log
+              exit 1
+            fi
