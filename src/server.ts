@@ -16,10 +16,11 @@ export const server = new Hono()
 server.use(logger())
 server.use(cors())
 
-server.use((c, next) => {
+server.use(async (c, next) => {
   const apiKey = process.env.API_KEY
   if (!apiKey) {
-    return next()
+    await next()
+    return
   }
 
   // Check x-api-key header first
@@ -37,7 +38,7 @@ server.use((c, next) => {
     return c.json({ ok: false, error: "Unauthorized" }, 401)
   }
 
-  return next()
+  await next()
 })
 
 server.get("/", (c) => c.text("Server running"))

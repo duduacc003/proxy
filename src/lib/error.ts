@@ -22,7 +22,10 @@ function notifyRateLimitWebhook(
   status: number,
 ): void {
   const webhookUrl = process.env.RATE_LIMIT_WEBHOOK_URL
-  if (!webhookUrl) return
+  if (!webhookUrl) {
+    consola.debug("RATE_LIMIT_WEBHOOK_URL not set, skipping notification")
+    return
+  }
 
   // Validate URL format
   try {
@@ -31,6 +34,8 @@ function notifyRateLimitWebhook(
     consola.warn("Invalid RATE_LIMIT_WEBHOOK_URL format")
     return
   }
+
+  consola.debug(`Sending rate limit notification to ${webhookUrl}`)
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 5000)
@@ -47,6 +52,15 @@ function notifyRateLimitWebhook(
       timestamp: new Date().toISOString(),
     }),
   })
+    .then((response) => {
+      if (!response.ok) {
+        consola.warn(
+          `Rate limit webhook responded with status ${response.status}`,
+        )
+      } else {
+        consola.info("Rate limit webhook notification sent successfully")
+      }
+    })
     .catch((err: unknown) => {
       consola.warn("Failed to notify rate limit webhook:", err)
     })
@@ -76,6 +90,7 @@ export async function forwardError(c: Context, error: unknown) {
     consola.error("HTTP error:", errorJson)
 
     if (error.response.status === 429) {
+      consola.info("429 error detected, triggering webhook notification")
       notifyRateLimitWebhook(errorJson, 429)
     }
 
