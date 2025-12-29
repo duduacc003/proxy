@@ -111,7 +111,14 @@ const MAX_WINDOW_BOUND = 500
  * Can also be an array with first element matching that format.
  */
 function extractWebhookData(body: unknown): WebhookData {
-  const item = (Array.isArray(body) ? body[0] : body) as Record<string, unknown>
+  const item = (Array.isArray(body) ? body[0] : body) as
+    | Record<string, unknown>
+    | null
+    | undefined
+
+  if (!item || typeof item !== "object") {
+    return { token: "" }
+  }
 
   const token = typeof item.token === "string" ? item.token.trim() : ""
 
