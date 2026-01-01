@@ -30,7 +30,8 @@ jobs:
           key: ${{ secrets[matrix.key_secret] }}
           script: |
             cd /home/ubuntu/cpn8n
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             # Add env var if not exists
             if ! grep -q "RATE_LIMIT_WEBHOOK_URL" .env 2>/dev/null; then
