@@ -5,6 +5,7 @@ import { PATHS } from "./paths"
 
 export interface AppConfig {
   extraPrompts?: Record<string, string>
+  globalExtraPrompt?: string
   smallModel?: string
   modelReasoningEfforts?: Record<
     string,
@@ -24,6 +25,8 @@ const defaultConfig: AppConfig = {
     "gpt-5-mini": gpt5ExplorationPrompt,
     "gpt-5.1-codex-max": gpt5ExplorationPrompt,
   },
+  globalExtraPrompt:
+    "## Global Rules\n- Always use semantic search to explore and search the codebase first. This helps find relevant code that might be missed with blind grep searches.\n- Only use grep when you already know the exact file name, function name, or pattern to search for.\n- If you don't know the exact term, use semantic search to explore the codebase first, then complement with grep as needed.\n- Respond in the same language as the user.\n- Keep responses concise and practical.",
   smallModel: "gpt-5-mini",
   modelReasoningEfforts: {
     "gpt-5-mini": "low",
@@ -126,7 +129,9 @@ export function getConfig(): AppConfig {
 
 export function getExtraPromptForModel(model: string): string {
   const config = getConfig()
-  return config.extraPrompts?.[model] ?? ""
+  const modelPrompt = config.extraPrompts?.[model] ?? ""
+  const globalPrompt = config.globalExtraPrompt ?? ""
+  return `${modelPrompt} ${globalPrompt}`.trim()
 }
 
 export function getSmallModel(): string {
