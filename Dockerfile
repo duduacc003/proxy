@@ -15,6 +15,8 @@ RUN bun install --frozen-lockfile --production --ignore-scripts --no-cache
 
 COPY --from=builder /app/dist ./dist
 
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+
 EXPOSE 4141
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

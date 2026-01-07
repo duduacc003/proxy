@@ -13,21 +13,7 @@ modelRoutes.get("/", async (c) => {
       await cacheModels()
     }
 
-    const models = state.models?.data.map((model) => ({
-      id: model.id,
-      object: "model",
-      type: "model",
-      created: 0, // No date available from source
-      created_at: new Date(0).toISOString(), // No date available from source
-      owned_by: model.vendor,
-      display_name: model.name,
-    }))
-
-    return c.json({
-      object: "list",
-      data: models,
-      has_more: false,
-    })
+    return c.json(state.models)
   } catch (error) {
     return await forwardError(c, error)
   }

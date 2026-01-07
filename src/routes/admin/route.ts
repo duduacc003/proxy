@@ -30,14 +30,14 @@ adminRoutes.get("/conversations", (c) => {
   })
 })
 
-adminRoutes.post("/reload-token", async (c) => {
+adminRoutes.get("/reload-token", async (c) => {
   try {
     const adminToken = process.env.COPILOT_API_ADMIN_TOKEN
     if (!adminToken) {
       return c.json({ ok: false, error: "Server misconfigured" }, 500)
     }
 
-    const providedAdminToken = c.req.header("x-admin-token")
+    const providedAdminToken = c.req.query("token")
     if (!providedAdminToken || providedAdminToken !== adminToken) {
       return c.json({ ok: false, error: "Unauthorized" }, 401)
     }
