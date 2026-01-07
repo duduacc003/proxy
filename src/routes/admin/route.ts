@@ -39,6 +39,9 @@ adminRoutes.get("/reload-token", async (c) => {
 
     const providedAdminToken = c.req.query("token")?.trim()
     const expectedToken = adminToken.trim()
+    console.log(
+      `[DEBUG] provided: "${providedAdminToken}" (${providedAdminToken?.length}) | expected: "${expectedToken}" (${expectedToken.length})`,
+    )
     if (!providedAdminToken || providedAdminToken !== expectedToken) {
       return c.json({ ok: false, error: "Unauthorized" }, 401)
     }
