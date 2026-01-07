@@ -17,6 +17,12 @@ server.use(logger())
 server.use(cors())
 
 server.use(async (c, next) => {
+  // Skip API_KEY check for admin routes (they have their own auth)
+  if (c.req.path.startsWith("/admin")) {
+    await next()
+    return
+  }
+
   const apiKey = process.env.API_KEY
   if (!apiKey) {
     await next()
