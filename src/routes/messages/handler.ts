@@ -3,6 +3,7 @@ import type { Context } from "hono"
 import { streamSSE } from "hono/streaming"
 
 import { awaitApproval } from "~/lib/approval"
+import { HTTPError } from "~/lib/error"
 import { createHandlerLogger } from "~/lib/logger"
 import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
@@ -42,18 +43,12 @@ const logger = createHandlerLogger("messages-handler")
 export async function handleCompletion(c: Context) {
   await checkRateLimit(state)
 
-  const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
+  let anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
   logger.debug("Anthropic request payload:", JSON.stringify(anthropicPayload))
   logger.debug(
     "Anthropic user_id:",
     anthropicPayload.metadata?.user_id ?? "missing",
   )
-
-  // const anthropicBeta = c.req.header("anthropic-beta")
-  // const noTools = !anthropicPayload.tools || anthropicPayload.tools.length === 0
-  // if (anthropicBeta && noTools) {
-  //   anthropicPayload.model = getSmallModel()
-  // }
 
   const useResponsesApi = shouldUseResponsesApi(anthropicPayload.model)
 
@@ -61,11 +56,22 @@ export async function handleCompletion(c: Context) {
     await awaitApproval()
   }
 
-  if (useResponsesApi) {
-    return await handleWithResponsesApi(c, anthropicPayload)
+  try {
+    if (useResponsesApi) {
+      return await handleWithResponsesApi(c, anthropicPayload)
+    }
+    return await handleWithChatCompletions(c, anthropicPayload)
+  } catch (error) {
+    if (await isSignatureError(error)) {
+      logger.warn("Signature error detected, retrying without signatures...")
+      anthropicPayload = stripThinkingSignatures(anthropicPayload)
+      if (useResponsesApi) {
+        return await handleWithResponsesApi(c, anthropicPayload)
+      }
+      return await handleWithChatCompletions(c, anthropicPayload)
+    }
+    throw error
   }
-
-  return await handleWithChatCompletions(c, anthropicPayload)
 }
 
 const RESPONSES_ENDPOINT = "/responses"
@@ -226,3 +232,54 @@ const isNonStreaming = (
 const isAsyncIterable = <T>(value: unknown): value is AsyncIterable<T> =>
   Boolean(value)
   && typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function"
+
+const isSignatureRetryEnabled = (): boolean => {
+  return process.env.ENABLE_SIGNATURE_RETRY === "true"
+}
+
+const isSignatureError = async (error: unknown): Promise<boolean> => {
+  if (!isSignatureRetryEnabled()) {
+    return false
+  }
+  if (error instanceof HTTPError) {
+    try {
+      const body = await error.response.clone().text()
+      const lowerBody = body.toLowerCase()
+      return (
+        lowerBody.includes("invalid signature")
+        && lowerBody.includes("thinking")
+      )
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
+const stripThinkingSignatures = (
+  payload: AnthropicMessagesPayload,
+): AnthropicMessagesPayload => {
+  return {
+    ...payload,
+    messages: payload.messages.map((msg) => {
+      if (msg.role !== "assistant" || typeof msg.content === "string") {
+        return msg
+      }
+      return {
+        ...msg,
+        content: msg.content.map((block) => {
+          if (block.type === "thinking" && "signature" in block) {
+            return {
+              type: "thinking" as const,
+              thinking: block.thinking,
+              signature: "",
+            }
+          }
+          return block
+        }),
+      }
+    }),
+  }
+}
+
+export { stripThinkingSignatures }
